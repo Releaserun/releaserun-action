@@ -1,0 +1,205 @@
+name: 'ReleaseRun Stack Health Check'
+description: 'Scan your project for EOL dependencies, known CVEs, and version health issues. Get A-F grades for your entire tech stack.'
+author: 'ReleaseRun'
+
+branding:
+  icon: 'shield'
+  color: 'gray-dark'
+
+inputs:
+  path:
+    description: 'Path to scan (defaults to repository root)'
+    required: false
+    default: '.'
+  fail-on:
+    description: 'Fail the check if any technology grades at or below this level (A, B, C, D, F). Set to "none" to never fail.'
+    required: false
+    default: 'F'
+  format:
+    description: 'Output format: table (default) or json'
+    required: false
+    default: 'table'
+  comment:
+    description: 'Post results as a PR comment (true/false). Only works on pull_request events.'
+    required: false
+    default: 'true'
+  badge:
+    description: 'Include ReleaseRun health badges in PR comment (true/false)'
+    required: false
+    default: 'true'
+
+outputs:
+  grade:
+    description: 'Overall stack health grade (A-F)'
+  technologies:
+    description: 'Number of technologies detected'
+  eol-count:
+    description: 'Number of EOL technologies found'
+  cve-count:
+    description: 'Total CVE count across all technologies'
+  report:
+    description: 'Full report as JSON string'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Run ReleaseRun Check
+      id: check
+      shell: bash
+      run: |
+        # Install and run releaserun
+        npm install -g releaserun@latest 2>/dev/null
+
+        SCAN_PATH="${{ inputs.path }}"
+        FAIL_ON="${{ inputs.fail-on }}"
+        FORMAT="${{ inputs.format }}"
+
+        echo "🔍 Scanning ${SCAN_PATH} for dependency health..."
+        echo ""
+
+        # Run the check and capture output
+        set +e
+        if [ "$FORMAT" = "json" ]; then
+          RESULT=$(releaserun check --path "$SCAN_PATH" --json 2>&1)
+          EXIT_CODE=$?
+        else
+          RESULT=$(releaserun check --path "$SCAN_PATH" 2>&1)
+          EXIT_CODE=$?
+        fi
+        set -e
+
+        # Display output
+        echo "$RESULT"
+
+        # Get JSON output for parsing
+        JSON_RESULT=$(releaserun check --path "$SCAN_PATH" --json 2>/dev/null || echo '{"grade":"?","technologies":0,"eolCount":0,"cveCount":0}')
+
+        # Parse results
+        GRADE=$(echo "$JSON_RESULT" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');try{const j=JSON.parse(d);console.log(j.grade||'?')}catch{console.log('?')}" 2>/dev/null || echo "?")
+        TECH_COUNT=$(echo "$JSON_RESULT" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');try{const j=JSON.parse(d);console.log(j.technologies||0)}catch{console.log(0)}" 2>/dev/null || echo "0")
+        EOL_COUNT=$(echo "$JSON_RESULT" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');try{const j=JSON.parse(d);console.log(j.eolCount||0)}catch{console.log(0)}" 2>/dev/null || echo "0")
+        CVE_COUNT=$(echo "$JSON_RESULT" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');try{const j=JSON.parse(d);console.log(j.cveCount||0)}catch{console.log(0)}" 2>/dev/null || echo "0")
+
+        # Set outputs
+        echo "grade=$GRADE" >> $GITHUB_OUTPUT
+        echo "technologies=$TECH_COUNT" >> $GITHUB_OUTPUT
+        echo "eol-count=$EOL_COUNT" >> $GITHUB_OUTPUT
+        echo "cve-count=$CVE_COUNT" >> $GITHUB_OUTPUT
+
+        # Save report for PR comment
+        echo "$JSON_RESULT" > /tmp/releaserun-report.json
+        echo "report<<EOF" >> $GITHUB_OUTPUT
+        echo "$JSON_RESULT" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+        # Check fail condition
+        if [ "$FAIL_ON" != "none" ]; then
+          GRADE_NUM=0
+          case "$GRADE" in
+            A) GRADE_NUM=5 ;;
+            B) GRADE_NUM=4 ;;
+            C) GRADE_NUM=3 ;;
+            D) GRADE_NUM=2 ;;
+            F) GRADE_NUM=1 ;;
+          esac
+
+          FAIL_NUM=0
+          case "$FAIL_ON" in
+            A) FAIL_NUM=5 ;;
+            B) FAIL_NUM=4 ;;
+            C) FAIL_NUM=3 ;;
+            D) FAIL_NUM=2 ;;
+            F) FAIL_NUM=1 ;;
+          esac
+
+          if [ "$GRADE_NUM" -le "$FAIL_NUM" ] && [ "$GRADE_NUM" -gt 0 ]; then
+            echo ""
+            echo "❌ Stack health grade $GRADE is at or below threshold $FAIL_ON"
+            exit 1
+          fi
+        fi
+
+        echo ""
+        echo "✅ Stack health grade: $GRADE"
+
+    - name: Comment on PR
+      if: inputs.comment == 'true' && github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          let report;
+          try {
+            report = JSON.parse(fs.readFileSync('/tmp/releaserun-report.json', 'utf8'));
+          } catch (e) {
+            console.log('No report to comment');
+            return;
+          }
+
+          const grade = '${{ steps.check.outputs.grade }}';
+          const techCount = '${{ steps.check.outputs.technologies }}';
+          const eolCount = '${{ steps.check.outputs.eol-count }}';
+          const cveCount = '${{ steps.check.outputs.cve-count }}';
+          const showBadges = '${{ inputs.badge }}' === 'true';
+
+          const gradeEmoji = { A: '🟢', B: '🟡', C: '🟠', D: '🔴', F: '⛔' };
+          const emoji = gradeEmoji[grade] || '❓';
+
+          let body = `## ${emoji} Stack Health Report — Grade: **${grade}**\n\n`;
+          body += `| Metric | Value |\n|--------|-------|\n`;
+          body += `| Technologies scanned | ${techCount} |\n`;
+          body += `| EOL dependencies | ${eolCount} |\n`;
+          body += `| Known CVEs | ${cveCount} |\n`;
+          body += `| Overall grade | ${grade} |\n\n`;
+
+          if (report.items && Array.isArray(report.items)) {
+            body += `### Details\n\n`;
+            body += `| Technology | Version | EOL | CVEs | Grade |\n`;
+            body += `|------------|---------|-----|------|-------|\n`;
+            report.items.forEach(item => {
+              body += `| ${item.name || '?'} | ${item.version || '?'} | ${item.eol || '?'} | ${item.cves || 0} | ${item.grade || '?'} |\n`;
+            });
+            body += '\n';
+          }
+
+          if (showBadges && report.items) {
+            body += `### Badges\n\n`;
+            report.items.forEach(item => {
+              if (item.slug) {
+                body += `![${item.name} Health](https://img.releaserun.com/badge/health/${item.slug}.svg) `;
+              }
+            });
+            body += '\n\n';
+          }
+
+          body += `---\n*Powered by [ReleaseRun](https://releaserun.com/tools/) — [GitHub Action](https://github.com/Releaserun/releaserun-action)*`;
+
+          // Find existing comment to update
+          const { data: comments } = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+          });
+
+          const botComment = comments.find(c => c.body.includes('Stack Health Report'));
+
+          if (botComment) {
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: botComment.id,
+              body: body,
+            });
+          } else {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body,
+            });
+          }
