@@ -141,6 +141,7 @@ The action posts a formatted table as a PR comment:
 - [ReleaseRun Tools](https://releaserun.com/tools/) — 30+ free developer tools
 - [CLI on npm](https://www.npmjs.com/package/releaserun) — Run locally without the Action
 - [Badge Generator](https://releaserun.com/tools/badge-generator/) — SVG badges for your README
+- [Badge API Docs](https://releaserun.github.io/badges) — Full badge API reference with code examples
 - [Stack Health Scorecard](https://releaserun.com/tools/stack-health/) — Interactive web version
 - [EOL Timeline](https://releaserun.com/tools/eol-timeline/) — Visual EOL tracker
 
