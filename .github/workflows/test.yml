@@ -1,0 +1,33 @@
+name: Test Action
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create test package.json
+        run: |
+          cat > package.json << 'PKG'
+          {
+            "name": "test-project",
+            "version": "1.0.0",
+            "dependencies": {
+              "express": "^4.18.0",
+              "lodash": "^4.17.21"
+            }
+          }
+          PKG
+
+      - name: Run ReleaseRun Scan
+        uses: ./
+        with:
+          scan-path: '.'
+          fail-on-grade: 'F'
+          output-format: 'markdown'
