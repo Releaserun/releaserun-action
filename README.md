@@ -11,7 +11,7 @@ Scan your project for end-of-life dependencies, known CVEs, and version health i
 ## Quick Start
 
 ```yaml
-- uses: Releaserun/releaserun-action@v1
+- uses: Releaserun/releaserun-action@v2
 ```
 
 That's it. Add it to any workflow and it'll scan your project, post a health report as a PR comment, and optionally fail the build if your stack health drops below a threshold.
@@ -46,13 +46,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: Releaserun/releaserun-action@v1
+      - uses: Releaserun/releaserun-action@v2
 ```
 
 ### Fail on low grades
 
 ```yaml
-- uses: Releaserun/releaserun-action@v1
+- uses: Releaserun/releaserun-action@v2
   with:
     fail-on: 'D'  # Fail if any tech grades D or F
 ```
@@ -60,7 +60,7 @@ jobs:
 ### Scan a specific directory
 
 ```yaml
-- uses: Releaserun/releaserun-action@v1
+- uses: Releaserun/releaserun-action@v2
   with:
     path: './backend'
 ```
@@ -68,13 +68,48 @@ jobs:
 ### JSON output for scripting
 
 ```yaml
-- uses: Releaserun/releaserun-action@v1
+- uses: Releaserun/releaserun-action@v2
   id: health
   with:
     format: 'json'
     comment: 'false'
 
 - run: echo "Grade is ${{ steps.health.outputs.grade }}"
+```
+
+### Auto-update README badges
+
+When `update-readme` is true, the action runs `releaserun readme --write` on PRs to commit version-specific badges directly to your README:
+
+```yaml
+name: Stack Health
+on: [pull_request]
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Releaserun/releaserun-action@v2
+        with:
+          update-readme: 'true'
+```
+
+### Version-specific badge output
+
+As of CLI 1.1.0, badges are version-specific. The `badge-markdown` output contains copy-paste-ready markdown:
+
+```yaml
+- uses: Releaserun/releaserun-action@v2
+  id: health
+
+- run: echo "${{ steps.health.outputs.badge-markdown }}"
+  # Example output:
+  # [![Node.js 20 Health](https://img.releaserun.com/badge/health/nodejs/20.svg)](https://releaserun.com/badges/nodejs/)
+  # [![Python 3.11 Health](https://img.releaserun.com/badge/health/python/3.11.svg)](https://releaserun.com/badges/python/)
 ```
 
 ### Scheduled checks
@@ -90,7 +125,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: Releaserun/releaserun-action@v1
+      - uses: Releaserun/releaserun-action@v2
         with:
           comment: 'false'
           fail-on: 'D'
@@ -105,6 +140,7 @@ jobs:
 | `format` | `table` | Output format: `table` or `json` |
 | `comment` | `true` | Post results as PR comment |
 | `badge` | `true` | Include health badges in PR comment |
+| `update-readme` | `false` | Auto-update README with health badges on PRs |
 
 ## Outputs
 
@@ -115,6 +151,7 @@ jobs:
 | `eol-count` | Number of EOL technologies |
 | `cve-count` | Total CVE count |
 | `report` | Full JSON report |
+| `badge-markdown` | Version-specific badge markdown for READMEs |
 
 ## PR Comment Example
 

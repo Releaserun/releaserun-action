@@ -27,18 +27,30 @@ inputs:
     description: 'Include ReleaseRun health badges in PR comment (true/false)'
     required: false
     default: 'true'
+  update-readme:
+    description: 'Automatically update README with health badges via releaserun readme --write (true/false). Only runs on pull_request events.'
+    required: false
+    default: 'false'
 
 outputs:
   grade:
     description: 'Overall stack health grade (A-F)'
+    value: ${{ steps.check.outputs.grade }}
   technologies:
     description: 'Number of technologies detected'
+    value: ${{ steps.check.outputs.technologies }}
   eol-count:
     description: 'Number of EOL technologies found'
+    value: ${{ steps.check.outputs.eol-count }}
   cve-count:
     description: 'Total CVE count across all technologies'
+    value: ${{ steps.check.outputs.cve-count }}
   report:
     description: 'Full report as JSON string'
+    value: ${{ steps.check.outputs.report }}
+  badge-markdown:
+    description: 'Version-specific badge markdown for use in READMEs'
+    value: ${{ steps.badges.outputs.badge-markdown }}
 
 runs:
   using: 'composite'
@@ -77,13 +89,13 @@ runs:
         echo "$RESULT"
 
         # Get JSON output for parsing
-        JSON_RESULT=$(releaserun check --path "$SCAN_PATH" --json 2>/dev/null || echo '{"grade":"?","technologies":0,"eolCount":0,"cveCount":0}')
+        JSON_RESULT=$(releaserun check --path "$SCAN_PATH" --json 2>/dev/null || echo '{"grade":"?","technologies":[]}')
 
-        # Parse results
+        # Parse results from technologies array
         GRADE=$(echo "$JSON_RESULT" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');try{const j=JSON.parse(d);console.log(j.grade||'?')}catch{console.log('?')}" 2>/dev/null || echo "?")
-        TECH_COUNT=$(echo "$JSON_RESULT" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');try{const j=JSON.parse(d);console.log(j.technologies||0)}catch{console.log(0)}" 2>/dev/null || echo "0")
-        EOL_COUNT=$(echo "$JSON_RESULT" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');try{const j=JSON.parse(d);console.log(j.eolCount||0)}catch{console.log(0)}" 2>/dev/null || echo "0")
-        CVE_COUNT=$(echo "$JSON_RESULT" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');try{const j=JSON.parse(d);console.log(j.cveCount||0)}catch{console.log(0)}" 2>/dev/null || echo "0")
+        TECH_COUNT=$(echo "$JSON_RESULT" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');try{const j=JSON.parse(d);const items=Array.isArray(j.technologies)?j.technologies:[];console.log(items.length)}catch{console.log(0)}" 2>/dev/null || echo "0")
+        EOL_COUNT=$(echo "$JSON_RESULT" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');try{const j=JSON.parse(d);const items=Array.isArray(j.technologies)?j.technologies:[];const now=Date.now();const isEol=(v)=>{if(v===true)return true;const s=(v??'').toString().trim().toLowerCase();if(s==='true'||s==='end of life'||s==='eol')return true;const t=Date.parse(s);return Number.isFinite(t)&&t<=now;};console.log(items.filter(i=>isEol(i.eol)).length)}catch{console.log(0)}" 2>/dev/null || echo "0")
+        CVE_COUNT=$(echo "$JSON_RESULT" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');try{const j=JSON.parse(d);const items=Array.isArray(j.technologies)?j.technologies:[];const total=items.reduce((sum,i)=>sum+(Number(i.cves)||0),0);console.log(total)}catch{console.log(0)}" 2>/dev/null || echo "0")
 
         # Set outputs
         echo "grade=$GRADE" >> $GITHUB_OUTPUT
@@ -127,9 +139,39 @@ runs:
         echo ""
         echo "✅ Stack health grade: $GRADE"
 
+    - name: Generate badge markdown
+      id: badges
+      shell: bash
+      run: |
+        SCAN_PATH="${{ inputs.path }}"
+        BADGE_MD=$(releaserun readme --path "$SCAN_PATH" 2>/dev/null || echo "")
+        echo "badge-markdown<<EOF" >> $GITHUB_OUTPUT
+        echo "$BADGE_MD" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Update README with badges
+      if: inputs.update-readme == 'true' && github.event_name == 'pull_request'
+      shell: bash
+      run: |
+        SCAN_PATH="${{ inputs.path }}"
+        releaserun readme --path "$SCAN_PATH" --write
+        if [ -n "$(git diff --name-only)" ]; then
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "docs: update ReleaseRun health badges in README"
+          if [ -n "${{ github.head_ref }}" ]; then
+            git push origin "HEAD:${{ github.head_ref }}" || echo "Could not push README update to PR branch"
+          else
+            git push || echo "Could not push README update"
+          fi
+        fi
+
     - name: Comment on PR
       if: inputs.comment == 'true' && github.event_name == 'pull_request'
       uses: actions/github-script@v7
+      env:
+        BADGE_MARKDOWN: ${{ steps.badges.outputs.badge-markdown }}
       with:
         script: |
           const fs = require('fs');
@@ -146,6 +188,7 @@ runs:
           const eolCount = '${{ steps.check.outputs.eol-count }}';
           const cveCount = '${{ steps.check.outputs.cve-count }}';
           const showBadges = '${{ inputs.badge }}' === 'true';
+          const badgeMarkdown = `${{ steps.badges.outputs.badge-markdown }}`;
 
           const gradeEmoji = { A: '🟢', B: '🟡', C: '🟠', D: '🔴', F: '⛔' };
           const emoji = gradeEmoji[grade] || '❓';
@@ -162,7 +205,8 @@ runs:
             body += `| Technology | Version | EOL | CVEs | Grade |\n`;
             body += `|------------|---------|-----|------|-------|\n`;
             report.items.forEach(item => {
-              body += `| ${item.name || '?'} | ${item.version || '?'} | ${item.eol || '?'} | ${item.cves || 0} | ${item.grade || '?'} |\n`;
+              const version = item.version || '?';
+              body += `| ${item.name || '?'} | ${version} | ${item.eol || '?'} | ${item.cves || 0} | ${item.grade || '?'} |\n`;
             });
             body += '\n';
           }
@@ -171,10 +215,19 @@ runs:
             body += `### Badges\n\n`;
             report.items.forEach(item => {
               if (item.slug) {
-                body += `![${item.name} Health](https://img.releaserun.com/badge/health/${item.slug}.svg) `;
+                const version = item.version || '';
+                const badgeUrl = version
+                  ? `https://img.releaserun.com/badge/health/${item.slug}/${version}.svg`
+                  : `https://img.releaserun.com/badge/health/${item.slug}.svg`;
+                body += `![${item.name} Health](${badgeUrl}) `;
               }
             });
             body += '\n\n';
+          }
+
+          if (badgeMarkdown) {
+            body += `### Add to your README\n\n`;
+            body += `\`\`\`markdown\n${badgeMarkdown}\n\`\`\`\n\n`;
           }
 
           body += `---\n*Powered by [ReleaseRun](https://releaserun.com/tools/) — [GitHub Action](https://github.com/Releaserun/releaserun-action)*`;
