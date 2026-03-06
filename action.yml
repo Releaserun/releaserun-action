@@ -82,10 +82,10 @@ runs:
         # Run the check and capture output
         set +e
         if [ "$FORMAT" = "json" ]; then
-          RESULT=$(releaserun check --path "$SCAN_PATH" --json 2>&1)
+          RESULT=$(releaserun check --path "$SCAN_PATH" --json --no-cache 2>&1)
           EXIT_CODE=$?
         else
-          RESULT=$(releaserun check --path "$SCAN_PATH" 2>&1)
+          RESULT=$(releaserun check --path "$SCAN_PATH" --no-cache 2>&1)
           EXIT_CODE=$?
         fi
         set -e
@@ -94,7 +94,7 @@ runs:
         echo "$RESULT"
 
         # Get JSON output for parsing
-        JSON_RESULT=$(releaserun check --path "$SCAN_PATH" --json 2>/dev/null || echo '{"grade":"?","technologies":[]}')
+        JSON_RESULT=$(releaserun check --path "$SCAN_PATH" --json --no-cache 2>/dev/null || echo '{"grade":"?","technologies":[]}')
 
         # Parse results from technologies array
         GRADE=$(echo "$JSON_RESULT" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');try{const j=JSON.parse(d);console.log(j.grade||'?')}catch{console.log('?')}" 2>/dev/null || echo "?")
