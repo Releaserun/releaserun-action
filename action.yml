@@ -102,8 +102,14 @@ runs:
         # Display output
         echo "$RESULT"
 
-        # Get JSON output for parsing
-        JSON_RESULT=$(releaserun check --path "$SCAN_PATH" --json --no-cache 2>/dev/null || echo '{"grade":"?","technologies":[]}')
+        # Get JSON output for parsing (preserve output even when command exits non-zero)
+        set +e
+        JSON_RESULT=$(releaserun check --path "$SCAN_PATH" --json --no-cache 2>/dev/null)
+        JSON_EXIT=$?
+        set -e
+        if [ -z "$JSON_RESULT" ]; then
+          JSON_RESULT='{"grade":"?","technologies":[]}'
+        fi
 
         # Parse results from technologies array
         GRADE=$(echo "$JSON_RESULT" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');try{const j=JSON.parse(d);console.log(j.grade||'?')}catch{console.log('?')}" 2>/dev/null || echo "?")
