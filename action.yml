@@ -220,20 +220,22 @@ runs:
           body += `| Known CVEs | ${cveCount} |\n`;
           body += `| Overall grade | ${grade} |\n\n`;
 
-          if (report.items && Array.isArray(report.items)) {
+          const items = report.technologies || report.items || [];
+          if (Array.isArray(items) && items.length > 0) {
             body += `### Details\n\n`;
             body += `| Technology | Version | EOL | CVEs | Grade |\n`;
             body += `|------------|---------|-----|------|-------|\n`;
-            report.items.forEach(item => {
+            items.forEach(item => {
               const version = item.version || '?';
-              body += `| ${item.name || '?'} | ${version} | ${item.eol || '?'} | ${item.cves || 0} | ${item.grade || '?'} |\n`;
+              const eol = item.eol === null || item.eol === undefined ? '--' : item.eol;
+              body += `| ${item.name || '?'} | ${version} | ${eol} | ${item.cves || 0} | ${item.grade || '?'} |\n`;
             });
             body += '\n';
           }
 
-          if (showBadges && report.items) {
+          if (showBadges && items.length > 0) {
             body += `### Badges\n\n`;
-            report.items.forEach(item => {
+            items.forEach(item => {
               if (item.slug) {
                 const version = item.version || '';
                 const badgeUrl = version
