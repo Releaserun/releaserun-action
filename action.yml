@@ -64,12 +64,16 @@ runs:
       id: check
       shell: bash
       run: |
-        # Install releaserun CLI (prefer npm, fallback to GitHub for latest features)
+        # Install releaserun CLI (prefer npm, fallback to build from source)
         npm install -g releaserun@latest 2>/dev/null
         CLI_VERSION=$(releaserun --version 2>/dev/null || echo "0.0.0")
         if [ "$(printf '%s\n' "1.3.0" "$CLI_VERSION" | sort -V | head -n1)" != "1.3.0" ]; then
-          echo "📦 Upgrading CLI from GitHub for v2 features..."
-          npm install -g github:Releaserun/releaserun-cli 2>/dev/null || true
+          echo "📦 Building CLI from source for v2 features..."
+          TMPDIR=$(mktemp -d)
+          git clone --depth 1 https://github.com/Releaserun/releaserun-cli.git "$TMPDIR" 2>/dev/null
+          cd "$TMPDIR" && npm install && npm run build && npm install -g . 2>/dev/null
+          cd - > /dev/null
+          rm -rf "$TMPDIR"
         fi
 
         SCAN_PATH="${{ inputs.path }}"
