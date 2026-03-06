@@ -64,20 +64,22 @@ runs:
       id: check
       shell: bash
       run: |
-        # Install releaserun CLI (prefer npm, fallback to build from source)
+        # Install releaserun CLI
+        # Try npm first; if version < 1.3.0, build from source for v2 features
         npm install -g releaserun@latest 2>/dev/null || true
         CLI_VERSION=$(releaserun --version 2>/dev/null || echo "0.0.0")
         if [ "$(printf '%s\n' "1.3.0" "$CLI_VERSION" | sort -V | head -n1)" != "1.3.0" ]; then
-          echo "📦 Building CLI v1.3.0 from source..."
+          echo "📦 npm has v${CLI_VERSION}, building v1.3.0 from source..."
+          npm uninstall -g releaserun 2>/dev/null || true
           RR_BUILD_DIR="${RUNNER_TEMP:-/tmp}/releaserun-build"
           git clone --depth 1 https://github.com/Releaserun/releaserun-cli.git "$RR_BUILD_DIR"
           cd "$RR_BUILD_DIR"
           npm install --ignore-scripts
           npm run build
-          npm install -g --ignore-scripts .
+          npm link
           cd "$GITHUB_WORKSPACE"
-          echo "CLI version: $(releaserun --version 2>/dev/null || echo 'install failed')"
         fi
+        echo "releaserun $(releaserun --version 2>/dev/null || echo 'NOT FOUND')"
 
         SCAN_PATH="${{ inputs.path }}"
         FAIL_ON="${{ inputs.fail-on }}"
