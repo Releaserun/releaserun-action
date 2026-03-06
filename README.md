@@ -2,9 +2,9 @@
 
 [![GitHub Marketplace](https://img.shields.io/badge/Marketplace-ReleaseRun-blue?logo=github)](https://github.com/marketplace/actions/releaserun-stack-health-check)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node.js Health](https://img.releaserun.com/badge/health/nodejs.svg)](https://releaserun.com/badges/nodejs/)
-[![Kubernetes Health](https://img.releaserun.com/badge/health/kubernetes.svg)](https://releaserun.com/badges/kubernetes/)
-[![Python Health](https://img.releaserun.com/badge/health/python.svg)](https://releaserun.com/badges/python/)
+[![Node.js Health](https://img.releaserun.com/badge/health/nodejs.svg)](https://releaserun.com/nodejs/)
+[![Kubernetes Health](https://img.releaserun.com/badge/health/kubernetes.svg)](https://releaserun.com/kubernetes/)
+[![Python Health](https://img.releaserun.com/badge/health/python.svg)](https://releaserun.com/python/)
 
 Scan your project for end-of-life dependencies, known CVEs, and version health issues. Get an A-F grade for your entire tech stack in CI.
 
@@ -108,8 +108,8 @@ As of CLI 1.1.0, badges are version-specific. The `badge-markdown` output contai
 
 - run: echo "${{ steps.health.outputs.badge-markdown }}"
   # Example output:
-  # [![Node.js 20 Health](https://img.releaserun.com/badge/health/nodejs/20.svg)](https://releaserun.com/badges/nodejs/)
-  # [![Python 3.11 Health](https://img.releaserun.com/badge/health/python/3.11.svg)](https://releaserun.com/badges/python/)
+  # [![Node.js 20 Health](https://img.releaserun.com/badge/health/nodejs/20.svg)](https://releaserun.com/nodejs/)
+  # [![Python 3.11 Health](https://img.releaserun.com/badge/health/python/3.11.svg)](https://releaserun.com/python/)
 ```
 
 ### Scheduled checks
