@@ -2,6 +2,9 @@
 
 [![GitHub Marketplace](https://img.shields.io/badge/Marketplace-ReleaseRun-blue?logo=github)](https://github.com/marketplace/actions/releaserun-stack-health-check)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js Health](https://img.releaserun.com/badge/health/nodejs.svg)](https://releaserun.com/badges/nodejs/)
+[![Kubernetes Health](https://img.releaserun.com/badge/health/kubernetes.svg)](https://releaserun.com/badges/kubernetes/)
+[![Python Health](https://img.releaserun.com/badge/health/python.svg)](https://releaserun.com/badges/python/)
 
 Scan your project for end-of-life dependencies, known CVEs, and version health issues. Get an A-F grade for your entire tech stack in CI.
 
