@@ -3,8 +3,8 @@ description: 'Scan your project for EOL dependencies, known CVEs, and version he
 author: 'ReleaseRun'
 
 branding:
-  icon: 'shield'
-  color: 'gray-dark'
+  icon: 'activity'
+  color: 'green'
 
 inputs:
   path:
