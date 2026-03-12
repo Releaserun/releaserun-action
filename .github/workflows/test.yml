@@ -28,6 +28,6 @@ jobs:
       - name: Run ReleaseRun Scan
         uses: ./
         with:
-          scan-path: '.'
-          fail-on-grade: 'F'
-          output-format: 'markdown'
+          path: '.'
+          fail-on: 'F'
+          format: 'table'
