@@ -1,0 +1,20 @@
+# Posts a stack health report as a comment on every PR
+# Shows A-F grades for each detected technology
+name: Stack Health Report
+
+on:
+  pull_request:
+
+permissions:
+  pull-requests: write
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Releaserun/releaserun-action@v2
+        with:
+          comment: 'true'
+          badge: 'true'
+          fail-on: 'none'  # Report but never block the PR
