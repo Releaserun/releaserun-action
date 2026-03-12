@@ -1,0 +1,38 @@
+# Weekly stack health audit — creates a GitHub issue with results
+# Good for tracking tech debt and EOL debt over time
+name: Weekly Stack Health Audit
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'  # Every Monday at 9am UTC
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  weekly-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: Releaserun/releaserun-action@v2
+        id: check
+        with:
+          format: 'json'
+          fail-on: 'none'
+
+      - name: Create issue if grade is C or below
+        if: steps.check.outputs.grade == 'C' || steps.check.outputs.grade == 'D' || steps.check.outputs.grade == 'F'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: \`Stack health grade: \${process.env.GRADE} — action needed\`,
+              body: 'Weekly stack health audit found tech debt. Run `npx releaserun check` locally for details.',
+              labels: ['tech-debt', 'dependencies']
+            });
+        env:
+          GRADE: ${{ steps.check.outputs.grade }}
