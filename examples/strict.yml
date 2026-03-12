@@ -1,0 +1,18 @@
+# Strict mode — fail if any technology is grade C or below
+# Use this to enforce minimum dependency health standards
+name: Stack Health (Strict)
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Releaserun/releaserun-action@v2
+        with:
+          fail-on: 'C'  # Block merges if any tech is graded C, D, or F
+          comment: 'true'
