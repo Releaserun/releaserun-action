@@ -128,6 +128,18 @@ jobs:
           fail-on: 'D'
 ```
 
+## Ready-to-use Examples
+
+The [`examples/`](https://github.com/Releaserun/releaserun-action/tree/main/examples) directory has copy-paste workflow files:
+
+| File | Use case |
+|------|----------|
+| [`basic.yml`](examples/basic.yml) | Minimal setup — scan on push and PRs, fail only on F |
+| [`pr-comment.yml`](examples/pr-comment.yml) | Health report on every PR, never blocks merge |
+| [`weekly-report.yml`](examples/weekly-report.yml) | Monday audit + auto-create issue if grade drops to C/D/F |
+| [`strict.yml`](examples/strict.yml) | Block merges if any technology grades C or below |
+
+
 ## Inputs
 
 | Input | Default | Description |
